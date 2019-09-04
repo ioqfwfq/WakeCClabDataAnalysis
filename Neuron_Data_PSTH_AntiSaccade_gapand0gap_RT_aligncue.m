@@ -1,7 +1,7 @@
 % for AntiSaccade task
 % plot result from zero gap and gap trials together(4 groups of RT, 1 condition for each group)
-% align by cue
-% last edit 30-Aug-2019, J Zhu
+% align by saccade
+% last edit 04-Sep-2019, J Zhu
 
 
 [Neurons_num Neurons_txt] = xlsread('test.xlsx','adult');
@@ -19,32 +19,17 @@ for n = 1:length(Neurons)
     Antifilename = [Neurons{n,1}([1:6]),'_2_',num2str(Neurons{n,2})];
     Profilename = [Neurons{n,1}([1:6]),'_1_',num2str(Neurons{n,2})];
     try
-        [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_RT(Antifilename,Best_Cue(n)+8);
+        [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_combine_RT(Antifilename,Best_target(n)+8,Best_target(n)+16);
         psth1(n,:) = psth_temp1;
-        psth3(n,:) = psth_temp2;
-        psth5(n,:) = psth_temp3;
-        psth7(n,:) = psth_temp4;
-        ntrs1(n,:) = ntrs_temp;
+        psth2(n,:) = psth_temp2;
+        psth3(n,:) = psth_temp3;
+        psth4(n,:) = psth_temp4;
+        ntrs(n,:) = ntrs_temp;
     catch
-        disp(['error processing neuron  ', Antifilename  '  Dir=' num2str(Best_Cue(n))+8])
-    end
-    try
-        [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_RT(Antifilename,Best_Cue(n)+16);
-        psth2(n,:) = psth_temp1;
-        psth4(n,:) = psth_temp2;
-        psth6(n,:) = psth_temp3;
-        psth8(n,:) = psth_temp4;
-        ntrs2(n,:) = ntrs_temp;
-    catch
-        disp(['error processing neuron  ', Antifilename  '  Dir=' num2str(Best_Cue(n))+16])
+        disp(['error processing neuron  ', Antifilename  '  Dir=' num2str(Best_target(n)+8)])
     end
 end
 
-psth1all = [psth1;psth2];
-psth2all = [psth3;psth4];
-psth3all = [psth5;psth6];
-psth4all = [psth7;psth8];
-ntrs=[ntrs1;ntrs2];
 nn=sum(ntrs~=0);
 ntrs=sum(ntrs);
 definepsthmax=50;
@@ -52,19 +37,19 @@ definepsthmax=50;
 fig=openfig('figure2');
 % figure
 % set( gcf, 'Color', 'White', 'Unit', 'Normalized', ...
-%     'Position', [0.1,0.1,0.6,0.6] ) ;
-subplot(2,4,1)
+%     'Position', [0.1,0.1,0.8,0.8] ) ;
+subplot(2,4,5)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
 bins = bin_edges+0.5*bin_width;
 hold on
 try
-    psth1mean = sum(psth1all)/nn(1);
+    psth1mean = sum(psth1)/nn(1);
 catch
 end
 try
-    plot(bins,psth1mean,'r','LineWidth',3); % best target
+    plot(bins,psth1mean,'r','LineWidth',3);
 catch
 end
 try
@@ -76,10 +61,11 @@ axis([-0.5 1.5 0 definepsthmax+0.2])
 xlim([-0.5 0.5])
 xlabel('Time s')
 ylabel('Firing Rate spikes/s')
-title(['0-0.075s n= ' num2str(nn(1)) ' neurons ' num2str(ntrs(1)) ' trials'])
+title('0-0.075s')
+gtext({[num2str(nn(1)) ' neurons ' num2str(ntrs(1)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subplot(2,4,2)
+subplot(2,4,6)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -87,7 +73,7 @@ bins = bin_edges+0.5*bin_width;
 hold on
 
 try
-    psth2mean = sum(psth2all)/nn(2);
+    psth2mean = sum(psth2)/nn(2);
 catch
 end
 try
@@ -103,10 +89,11 @@ axis([-0.5 1.5 0 definepsthmax+0.2])
 xlim([-0.5 0.5])
 xlabel('Time s')
 ylabel('Firing Rate spikes/s')
-title(['0.075-0.120s n = ' num2str(nn(2)) ' neurons ' num2str(ntrs(2)) ' trials'])
+title('0.075-0.120s')
+gtext({[num2str(nn(2)) ' neurons ' num2str(ntrs(2)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subplot(2,4,3)
+subplot(2,4,7)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -114,7 +101,7 @@ bins = bin_edges+0.5*bin_width;
 hold on
 
 try
-    psth3mean = sum(psth3all)/nn(3);
+    psth3mean = sum(psth3)/nn(3);
 catch
 end
 try
@@ -130,10 +117,11 @@ axis([-0.5 1.5 0 definepsthmax+0.2])
 xlim([-0.5 0.5])
 xlabel('Time s')
 ylabel('Firing Rate spikes/s')
-title(['0.120-0.150s n = ' num2str(nn(3)) ' neurons ' num2str(ntrs(3)) ' trials'])
+title('0.120-0.150s')
+gtext({[num2str(nn(3)) ' neurons ' num2str(ntrs(3)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subplot(2,4,4)
+subplot(2,4,8)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -141,7 +129,7 @@ bins = bin_edges+0.5*bin_width;
 hold on
 
 try
-    psth4mean = sum(psth4all)/nn(4);
+    psth4mean = sum(psth4)/nn(4);
 catch
 end
 try
@@ -157,13 +145,14 @@ axis([-0.5 1.5 0 definepsthmax+0.2])
 xlim([-0.5 0.5])
 xlabel('Time s')
 ylabel('Firing Rate spikes/s')
-title(['>0.150s n = ' num2str(nn(4)) ' neurons ' num2str(ntrs(4)) ' trials'])
+title('>0.150s')
+gtext({[num2str(nn(4)) ' neurons ' num2str(ntrs(4)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
-axes( 'Position', [0, 0.95, 1, 0.05] ) ;
-set( gca, 'Color', 'None', 'XColor', 'None', 'YColor', 'None' ) ;
-text( 0.5, 0, 'Zero gap and gap trials All neurons AlignCue', 'FontSize', 12', 'FontWeight', 'Bold', ...
-    'HorizontalAlignment', 'Center', 'VerticalAlignment', 'Bottom' )
-% end
+% axes( 'Position', [0, 0.005, 1, 0.05] ) ;
+% set( gca, 'Color', 'None', 'XColor', 'None', 'YColor', 'None' ) ;
+% text(0.5, 0, 'All neurons Align Sac Best target location', 'FontSize', 12', 'FontWeight', 'Bold', ...
+%     'HorizontalAlignment', 'Center', 'VerticalAlignment', 'Bottom' )
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function Directions = Get_Dir(Neurons)
 Directions(1:length(Neurons),1:12) = NaN;
@@ -196,7 +185,7 @@ for n = 1:length(Neurons)
 end
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_RT(filename,class_num)
+function [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_combine_RT(filename,class_num1,class_num2)
 load(filename)
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -217,45 +206,91 @@ Threshold3 = 0.15;
 
 if length(MatData.class)>8 %24  % AntiSac
     if ~isempty(MatData)
-        for m = 1:length(MatData.class(class_num).ntr)
-            if MatData.class(class_num).ntr(m).RT < Threshold1
-                if ~isempty(MatData.class(class_num).ntr(m).Saccade_onT)
+        for m1 = 1:length(MatData.class(class_num1).ntr)
+            if MatData.class(class_num1).ntr(m1).RT < Threshold1
+                if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num).ntr(m).TS-MatData.class(class_num).ntr(m).Cue_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
                         allTS1 = [allTS1 TS];
                         m_counter1 = m_counter1 + 1;
                     catch
                     end
                 end
             end
-            if MatData.class(class_num).ntr(m).RT >= Threshold1 && MatData.class(class_num).ntr(m).RT < Threshold2
-                if ~isempty(MatData.class(class_num).ntr(m).Saccade_onT)
+            if MatData.class(class_num1).ntr(m1).RT >= Threshold1 && MatData.class(class_num1).ntr(m1).RT < Threshold2
+                if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num).ntr(m).TS-MatData.class(class_num).ntr(m).Cue_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
                         allTS2 = [allTS2 TS];
                         m_counter2 = m_counter2 + 1;
                     catch
                     end
                 end
             end
-            if  MatData.class(class_num).ntr(m).RT >= Threshold2 && MatData.class(class_num).ntr(m).RT < Threshold3
-                if ~isempty(MatData.class(class_num).ntr(m).Saccade_onT)
+            if  MatData.class(class_num1).ntr(m1).RT >= Threshold2 && MatData.class(class_num1).ntr(m1).RT < Threshold3
+                if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num).ntr(m).TS-MatData.class(class_num).ntr(m).Cue_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
                         allTS3 = [allTS3 TS];
                         m_counter3 = m_counter3 + 1;
                     catch
                     end
                 end
             end
-            if MatData.class(class_num).ntr(m).RT >= Threshold3
-                if ~isempty(MatData.class(class_num).ntr(m).Saccade_onT)
+            if MatData.class(class_num1).ntr(m1).RT >= Threshold3
+                if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num).ntr(m).TS-MatData.class(class_num).ntr(m).Cue_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
+                        allTS4 = [allTS4 TS];
+                        m_counter4 = m_counter4 + 1;
+                    catch
+                    end
+                end
+            end
+        end
+        for m2 = 1:length(MatData.class(class_num2).ntr)
+            if MatData.class(class_num2).ntr(m2).RT < Threshold1
+                if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
+                    try
+                        TS=[];
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        allTS1 = [allTS1 TS];
+                        m_counter1 = m_counter1 + 1;
+                    catch
+                    end
+                end
+            end            
+            if MatData.class(class_num2).ntr(m2).RT >= Threshold1 && MatData.class(class_num2).ntr(m2).RT < Threshold2
+                if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
+                    try
+                        TS=[];
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        allTS2 = [allTS2 TS];
+                        m_counter2 = m_counter2 + 1;
+                    catch
+                    end
+                end
+            end            
+            if  MatData.class(class_num2).ntr(m2).RT >= Threshold2 && MatData.class(class_num2).ntr(m2).RT < Threshold3
+                if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
+                    try
+                        TS=[];
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        allTS3 = [allTS3 TS];
+                        m_counter3 = m_counter3 + 1;
+                    catch
+                    end
+                end
+            end
+            if MatData.class(class_num2).ntr(m2).RT >= Threshold3
+                if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
+                    try
+                        TS=[];
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
                         allTS4 = [allTS4 TS];
                         m_counter4 = m_counter4 + 1;
                     catch
