@@ -1,6 +1,6 @@
 % for AntiSaccade task
 % plot result from zero gap and gap trials together(4 groups of RT, 1 condition for each group)
-% align by saccade
+% align by cue
 % last edit 04-Sep-2019, J Zhu
 
 
@@ -19,14 +19,14 @@ for n = 1:length(Neurons)
     Antifilename = [Neurons{n,1}([1:6]),'_2_',num2str(Neurons{n,2})];
     Profilename = [Neurons{n,1}([1:6]),'_1_',num2str(Neurons{n,2})];
     try
-        [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_combine_RT(Antifilename,Best_target(n)+8,Best_target(n)+16);
+        [psth_temp1, psth_temp2, psth_temp3, psth_temp4, ntrs_temp] = Get_PsthM_combine_RT(Antifilename,Best_Cue(n)+8,Best_Cue(n)+16);
         psth1(n,:) = psth_temp1;
         psth2(n,:) = psth_temp2;
         psth3(n,:) = psth_temp3;
         psth4(n,:) = psth_temp4;
         ntrs(n,:) = ntrs_temp;
     catch
-        disp(['error processing neuron  ', Antifilename  '  Dir=' num2str(Best_target(n)+8)])
+        disp(['error processing neuron  ', Antifilename  '  Dir=' num2str(Best_Cue(n)+8)])
     end
 end
 
@@ -38,7 +38,7 @@ fig=openfig('figure2');
 % figure
 % set( gcf, 'Color', 'White', 'Unit', 'Normalized', ...
 %     'Position', [0.1,0.1,0.8,0.8] ) ;
-subplot(2,4,5)
+subplot(2,4,1)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -65,7 +65,7 @@ title('0-0.075s')
 gtext({[num2str(nn(1)) ' neurons ' num2str(ntrs(1)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subplot(2,4,6)
+subplot(2,4,2)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -93,7 +93,7 @@ title('0.075-0.120s')
 gtext({[num2str(nn(2)) ' neurons ' num2str(ntrs(2)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subplot(2,4,7)
+subplot(2,4,3)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -121,7 +121,7 @@ title('0.120-0.150s')
 gtext({[num2str(nn(3)) ' neurons ' num2str(ntrs(3)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-subplot(2,4,8)
+subplot(2,4,4)
 colors = 'rgb';
 bin_width = 0.05;  % 50 milliseconds bin
 bin_edges=-.8:bin_width:1.5;
@@ -148,10 +148,10 @@ ylabel('Firing Rate spikes/s')
 title('>0.150s')
 gtext({[num2str(nn(4)) ' neurons ' num2str(ntrs(4)) ' trials']},'color','r', 'FontWeight', 'Bold')
 
-% axes( 'Position', [0, 0.005, 1, 0.05] ) ;
+% axes( 'Position', [0, 0.95, 1, 0.05] ) ;
 % set( gca, 'Color', 'None', 'XColor', 'None', 'YColor', 'None' ) ;
-% text(0.5, 0, 'All neurons Align Sac Best target location', 'FontSize', 12', 'FontWeight', 'Bold', ...
-%     'HorizontalAlignment', 'Center', 'VerticalAlignment', 'Bottom' )
+% text( 0.5, 0, 'All neurons Align Cue Best cue location', 'FontSize', 12', 'FontWeight', 'Bold', ...
+%     'HorizontalAlignment', 'Center', 'VerticalAlignment', 'middle' )
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function Directions = Get_Dir(Neurons)
@@ -211,7 +211,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Cue_onT;
                         allTS1 = [allTS1 TS];
                         m_counter1 = m_counter1 + 1;
                     catch
@@ -222,7 +222,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Cue_onT;
                         allTS2 = [allTS2 TS];
                         m_counter2 = m_counter2 + 1;
                     catch
@@ -233,7 +233,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Cue_onT;
                         allTS3 = [allTS3 TS];
                         m_counter3 = m_counter3 + 1;
                     catch
@@ -244,7 +244,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num1).ntr(m1).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Saccade_onT;
+                        TS = MatData.class(class_num1).ntr(m1).TS-MatData.class(class_num1).ntr(m1).Cue_onT;
                         allTS4 = [allTS4 TS];
                         m_counter4 = m_counter4 + 1;
                     catch
@@ -257,7 +257,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Cue_onT;
                         allTS1 = [allTS1 TS];
                         m_counter1 = m_counter1 + 1;
                     catch
@@ -268,7 +268,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Cue_onT;
                         allTS2 = [allTS2 TS];
                         m_counter2 = m_counter2 + 1;
                     catch
@@ -279,7 +279,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Cue_onT;
                         allTS3 = [allTS3 TS];
                         m_counter3 = m_counter3 + 1;
                     catch
@@ -290,7 +290,7 @@ if length(MatData.class)>8 %24  % AntiSac
                 if ~isempty(MatData.class(class_num2).ntr(m2).Saccade_onT)
                     try
                         TS=[];
-                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Saccade_onT;
+                        TS = MatData.class(class_num2).ntr(m2).TS-MatData.class(class_num2).ntr(m2).Cue_onT;
                         allTS4 = [allTS4 TS];
                         m_counter4 = m_counter4 + 1;
                     catch
