@@ -1,0 +1,12 @@
+ 
+==================================================
+ Batch run: 04-May-2005 14:24:52
+==================================================
+ 
+??? Error using ==> parsebatchfile
+FileList is empty: No spike files to process
+
+Error in ==> C:\MATLAB6p5\work\MClust\KK\RunClustBatch.m
+On line 67  ==>    [gPar,fPar,def] = ParseBatchFile(batchfile);
+
+RunClustBatch

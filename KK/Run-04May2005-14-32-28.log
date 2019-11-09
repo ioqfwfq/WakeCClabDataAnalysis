@@ -1,0 +1,30 @@
+ 
+==================================================
+ Batch run: 04-May-2005 14:32:28
+==================================================
+ 
+ 
+==================================================
+ Creating FeatureData files: 
+==================================================
+ 
+Processing scr028_2.apm ...
+ 
+ Starting scr028_2.apm
+ 
+Writing scr028_2_Energy.fd. Please wait.
+Loading 1 blocks.
+ Wrote C:\MATLAB6p5\work\MClust\KK\FD\scr028_2_Energy.fd as a .mat formatted file
+ 
+Writing scr028_2_wavePC1T.fd. Please wait.
+Loading 1 blocks.
+??? Error using ==> feval
+Undefined function 'feature_wavePC1T'.
+
+Error in ==> C:\MATLAB6p5\work\mclust\mclust-3.3\mclust\Write_fd_file.m
+On line 141  ==>                 [nextFeatureData, nextFeatureNames, nextFeaturePar] = ...
+
+Error in ==> C:\MATLAB6p5\work\MClust\KK\RunClustBatch.m
+On line 131  ==>                     Write_fd_file(fullfile(fpath,[fname '_' TotalFeatures{iFD} '.fd']), CurrTTfile, TotalFeatures(iFD), Ch_Validity, record_block_size, template_matching)
+
+exit
