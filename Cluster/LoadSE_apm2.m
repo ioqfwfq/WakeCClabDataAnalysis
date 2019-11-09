@@ -1,0 +1,267 @@
+function [t, wv] = LoadSE_apm2( fn, records_to_get, record_units, channel, trial_interval )
+% [t, wv] = LoadSE_APM( fn, records_to_get, record_units, channel, trial_interval )
+%  Reads data from an APM data file into MClust
+%  Input arguments:
+%   fn = file name string
+%   records_to_get = a range of values
+%   record_units = a flag taking one of 5 cases (1,2,3,4 or 5)
+%       1. implies that records_to_get is a timestamp list.
+%       2. implies that records_to_get is a record number list
+%       3. implies that records_to_get is range of timestamps (a vector with 2 elements: a
+%          start and an end timestamp)
+%       4. implies that records_to_get is a range of records (a vector with 2 elements: a
+%          start and an end record number)
+%       5. asks to return the count of spikes (records_to_get should be [] in this case)
+%   APM specific:
+%   channel = recording channel (this is in addition to the basic
+%           definition of MClust loading engine).
+%   trial_interval = a conventional time interval at which subsequent trials occur. 
+%           Set to a value larger than the maximum 
+%           trial duration (in sec) when using gated mode with
+%           timers/counters reset, or to zero in any other situation.
+%        Details: (trial_interval x (n-1)) value is added to the timestamps t value 
+%           after n-th start-of-trial code.
+%
+%   In addition, if only fn is passed in then the entire file should be read.
+%
+% Output
+%   [t, wv]
+%       t = n x 1: timestamps of each spike in file
+%       wv = n x 4 x 32 waveforms
+%
+% Examples
+%   [t,wv] = myLoadingEngine('myfile.dat', 1:10, 2) should return the time and waveforms
+%   for the first 10 spikes in the file.
+%       t = myLoadingEngine('myfile.dat') should return all the timestamps from the file.
+%       n = myLoadingEngine('myfile.dat', [], 5) should return the number of spikes in the file.
+%
+% LoadSE_APM is a wrapper for APMReadData.m. It formats the data into a
+% MClust-readable format. Therefore APMReadData.m must reside somewhere
+% in Matlab path, in the current directory, or in LoadingEngines directory.
+% If you have developed your own script (or customized the default one) for loading 
+% the APM data, you need edit the APMReadData.m script and change any
+% occurence of APMReadData with the name of your APM data loading script.
+%
+% In order to use LoadSE_APM from MClust GUI, you need to place it in
+% LoadingEngines subfolder of your MClust installation. Then you will be 
+% able to select it from the dropdown list of available engines.
+% LoadSE_APM is a wrapper to APMReadData.m. 
+%
+% Notes
+%  Only channel 1 must be selected in front panel when loading APM files
+%  APM channel and trial interval may be set by invoking SetAPM(channel, trial_interval)
+%  at Matlab prompt, since MClust does not transfer them as parameters
+%  To reload a file after setting a different channel, one must 
+%  clear the workspace, issue the "clear all" command, and delete the .fd
+%  files coresponding to the apm data files
+%
+
+% You can change this to use APMReadUserData
+
+%disp('MClust loading APM data ...');
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Revision History %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 4-18-05, added '& (length(fields(trials(n).channels(2))) > 4)' to if
+%  statements for trials that did not have a waveform or timestamp, TM
+%
+% 4-28-05, Changed previous to
+% (isfield(trials(n).channels(channel),'spikes')), AB
+%
+global APMParam
+
+try
+    record_units;
+catch
+    record_units=0;
+end;
+
+
+try
+    channel;
+catch
+    try
+        channel=APMParam.channel;
+    catch
+        channel=2  % The default channel to be loaded
+    end;
+end;
+
+try
+    trial_interval;
+catch
+    try
+        trial_interval=APMParam.trial_interval;
+    catch
+        trial_interval=0;   % Default trial interval
+        %trial_interval=2e7; % 20 sec
+    end;
+end;
+
+
+%fn
+%records_to_get
+%record_units
+
+% persistent trials  TM
+global trials
+
+
+% If function is called with only file name, force reloading data
+% switch record_units
+%     case 0
+%         trials=APMReadData(fn);
+% end;
+
+if isempty(trials)
+    trials=APMReadUserData(fn);
+end;
+% APM data format is more flexible, allows variable length waveforms. We
+% need to find the minimum waveform length of all waveforms in the file,
+% then declare the waveform array according to this value
+try
+    nwf=0;
+    wflen=256;
+    for n=1:length(trials)
+        if (channel<=length(trials(n).channels)) & (isfield(trials(n).channels(channel),'spikes'))
+            if (~isempty(trials(n).channels(channel).spikes))
+                for j=1:length(trials(n).channels(channel).spikes)
+                    len=length(trials(n).channels(channel).spikes(j).waveform);
+                    if (len<wflen)
+                        wflen=len;
+                    end;
+                end;
+                nwf=nwf+length(trials(n).channels(channel).spikes);
+            end;
+        end;
+    end;
+catch
+    disp('Error while parsing the file ...')
+    disp(lasterr);
+end
+% MClust only works with 32-sample waveforms (certain modules)
+% Comment this line if you like to preserve APM waveform length
+wflen=32;
+wfstart = 2;
+wfend = wflen+wfstart-1;
+% Normalizing constant. Neuralynx as well as most other systems have 12 bit
+% ADC. APM has 16 bit ADC. To get same range, waveform samples must be
+% divided by 16. 
+% Set to 1 to preserve original APM range
+normconst=16;
+
+
+t=zeros(0,1);
+wv=zeros(0,4,wflen);
+size(wv);
+try
+switch record_units
+    case 1  % Timestamp list
+        k=0;    % Datafile record number
+        kr=0;   % Returned record number
+        for n=1:length(trials)
+            if (channel<=length(trials(n).channels)) & (isfield(trials(n).channels(channel),'spikes'))
+                if (~isempty(trials(n).channels(channel).spikes))
+                    for j=1:length(trials(n).channels(channel).spikes)
+                        k=k+1;
+                        ts=trials(n).channels(channel).spikes(j).timestamp * trials(n).channels(channel).time_calibration + trial_interval*(i-1);
+                        if (~isempty(find(records_to_get==ts)))
+                            kr=kr+1;
+                            t(kr,1)=ts;
+                            wv(kr,1,:)=trials(n).channels(channel).spikes(j).waveform(wfstart:wfend);
+                        end;
+                    end;
+                end;
+            end;
+        end;
+        wv=wv/normconst;
+        
+    case 2  % Timestamp index
+        k=0;    % Datafile record number
+        kr=0;   % Returned record number
+        for n=1:length(trials)
+            if (channel<=length(trials(n).channels)) & (isfield(trials(n).channels(channel),'spikes')) %& (length(fields(trials(n).channels(2))) > 4)
+                if (~isempty(trials(n).channels(channel).spikes))
+                    for j=1:length(trials(n).channels(channel).spikes)
+                        k=k+1;
+                        if (~isempty(find(records_to_get==k)))
+                            kr=kr+1;
+                            t(kr,1)=trials(n).channels(channel).spikes(j).timestamp * trials(n).channels(channel).time_calibration + trial_interval*(i-1);
+                            wv(kr,1,:)=trials(n).channels(channel).spikes(j).waveform(wfstart:wfend);
+                        end;
+                    end;
+                end;
+            end;
+        end;
+        wv=wv/normconst;
+
+    case 3  % Timestamp range
+        k=0;    % Datafile record number
+        kr=0;   % Returned record number
+        for n=1:length(trials)
+            if (channel<=length(trials(n).channels)) & (length(fields(trials(n).channels(2))) > 4) & isfield(trials(n).channels(channel),'spikes')
+                if (~isempty(trials(n).channels(channel).spikes))
+                    for j=1:length(trials(n).channels(channel).spikes)
+                        k=k+1;
+                        ts=trials(n).channels(channel).spikes(j).timestamp * trials(n).channels(channel).time_calibration + trial_interval*(i-1);
+                        if (ts>=records_to_get(1))
+                            kr=kr+1;
+                            t(kr,1)=trials(n).channels(channel).spikes(j).timestamp * trials(n).channels(channel).time_calibration + trial_interval*(i-1);
+                            wv(kr,1,:)=trials(n).channels(channel).spikes(j).waveform(wfstart:wfend);
+                        end;
+                        if (ts>=records_to_get(2))
+                            %size(records_to_get)
+                            %size(wv)
+                            wv=wv/normconst;
+                            return;
+                        end;
+                    end;
+                end;
+            end;
+        end;
+        wv=wv/normconst;
+        
+    case 4
+        k=0;    % Datafile record number
+        kr=0;   % Returned record number
+        for n=1:length(trials)
+            if (channel<=length(trials(n).channels)) & (length(fields(trials(n).channels(2))) > 4 ) & isfield(trials(n).channels(channel),'spikes')
+                if (~isempty(trials(n).channels(channel).spikes))
+                    for j=1:length(trials(n).channels(channel).spikes)
+                        k=k+1;
+                        if (k>=records_to_get(1))
+                            kr=kr+1;
+                            t(kr,1)=trials(n).channels(channel).spikes(j).timestamp * trials(n).channels(channel).time_calibration + trial_interval*(i-1);
+                            wv(kr,1,:)=trials(n).channels(channel).spikes(j).waveform(wfstart:wfend);
+                        end;
+                        if (k>=records_to_get(2))
+                            %size(records_to_get)
+                            %size(wv)
+                            wv=wv/normconst;
+                            return;
+                        end;
+                    end;
+                end;
+            end;
+        end;
+        wv=wv/normconst;
+        
+    case 5 % Return number of timestamps
+        %disp(' LoadSE_APM Returning number of waveforms ...');
+        t=nwf;
+        
+    otherwise
+        try
+            records_to_get;
+            if (isempty(records_to_get))
+                records_to_get=1:nwf;
+            end;
+        catch
+            records_to_get=1:nwf;
+        end;
+end;
+catch
+    disp(['Error in switch in case ', num2str(record_units), ' :']);
+    disp(lasterr);
+end
+%size(wv);
