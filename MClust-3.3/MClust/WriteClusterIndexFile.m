@@ -1,0 +1,4 @@
+function WriteClusterIndexFile(fn, clusterIndex)
+% WriteClusterIndexFile(fn, clusterIndex)%% MClust%  format is just an ascii list of which cluster each elt belongs to%% ADR 1998%% Status: PROMOTED (Release version) % See documentation for copyright (owned by original authors) and warranties (none!).% This code released as part of MClust 3.0.% Version control M3.0.
+fp = fopen(fn, 'wt');if fp == -1   errordlg(['Could not open file"' fn '".']);   return;end
+WriteHeader(fp, ...   'Cluster Index File', ...   'Output from MClust', ...   'Format = ascii file of which cluster each element belongs to');fprintf(fp, '%d\n', clusterIndex);fclose(fp);

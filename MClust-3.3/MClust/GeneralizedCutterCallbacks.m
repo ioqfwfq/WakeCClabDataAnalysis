@@ -1,0 +1,832 @@
+function GeneralizedCutterCallbacks(cboHandle)
+
+% GeneralizedCutterCallbacks
+%
+% Callbacks for cut using convex hulls window
+%
+% ADR 1998
+%
+% Status: PROMOTED (Release version) 
+% See documentation for copyright (owned by original authors) and warranties (none!).
+% This code released as part of MClust 3.0.
+% Version control M3.0.
+
+% modified 11 Oct 02 ncst to allow for the user to change the cluster name
+% and to not redraw the data window when scrolling the clusters
+
+%---------------------------
+% get startup info
+if nargin == 0
+    cboHandle = gcbo;
+end
+if strcmp(cboHandle,'RedrawAxes')
+	cboHandle= findobj('Tag', 'RedrawAxes');
+end
+figHandle = ParentFigureHandle(cboHandle);  % control window figure handle
+redrawAxesHandle = findobj(figHandle, 'Tag', 'RedrawAxes');
+redrawAxesFlag = get(redrawAxesHandle, 'Value');
+
+% global variables
+global MClust_TTfn          % file name for tt file
+global MClust_TTdn          % directory name for tt file
+global MClust_FDfn
+global MClust_FDdn
+global MClust_CurrentFeatures
+global MClust_TTData        % data from tt file
+global MClust_FeatureData   % features calculated from tt data
+global MClust_FeatureDatafn % Name of the .fd file.
+global MClust_FeatureTimestamps % Timestamps for each feature.
+global MClust_FeatureNames  % names of features
+global MClust_FeaturesToUse
+global MClust_ChannelValidity % 4 x 1 array of channel on (1) or off (0) flags
+global MClust_Clusters  
+global MClust_ClusterCutWindow_Pos
+global MClust_CHDrawingAxisWindow_Pos
+global MClust_Directory
+
+GChandle = findobj('Tag', 'ClusterCutWindow');
+if ~isempty(GChandle)
+    MClust_ClusterCutWindow_Pos = get(GChandle,'Position');
+end
+
+GChandle = findobj('Tag', 'CHDrawingAxisWindow');
+if ~isempty(GChandle)
+    MClust_CHDrawingAxisWindow_Pos = get(GChandle,'Position');
+end
+
+DirChange = 0;
+if ~strcmp(pwd,MClust_FDdn)
+	pushdir(MClust_FDdn);
+end
+
+%---------------------------
+% main switch
+switch get(cboHandle, 'Tag')
+    
+case 'ClusterCutWindow'    
+    GeneralizedCutterRedrawClusterKeys(cboHandle, 0);
+    
+case {'xdim', 'ydim', 'RedrawAxes', 'PlotMarker', 'PlotMarkerSize'}
+    if redrawAxesFlag
+        RedrawAxes(figHandle, 'full', 1);
+    end
+    
+case 'PrevAxis'
+    xdimHandle = findobj(figHandle, 'Tag', 'xdim');
+    xdim = get(xdimHandle, 'Value');
+    nxdim = length(get(xdimHandle, 'String'));
+    ydimHandle = findobj(figHandle, 'Tag', 'ydim');
+    ydim = get(ydimHandle, 'Value');
+    nydim = length(get(ydimHandle, 'String'));
+    if ydim > xdim+1
+        set(ydimHandle, 'Value', ydim-1);
+    else
+        if xdim > 1
+            set(xdimHandle, 'Value', xdim-1);
+        else 
+            set(xdimHandle, 'Value', nxdim-1);
+        end
+        set(ydimHandle, 'Value', nydim);
+    end
+    if redrawAxesFlag
+        RedrawAxes(figHandle, 'full', 1);
+    end
+    
+case 'NextAxis'
+    xdimHandle = findobj(figHandle, 'Tag', 'xdim');
+    xdim = get(xdimHandle, 'Value');
+    nxdim = length(get(xdimHandle, 'String'));
+    ydimHandle = findobj(figHandle, 'Tag', 'ydim');
+    ydim = get(ydimHandle, 'Value');
+    nydim = length(get(ydimHandle, 'String'));
+    if ydim == nydim
+        if xdim < nxdim-1
+            set(xdimHandle, 'Value', xdim+1);
+        else 
+            set(xdimHandle, 'Value', 1);
+        end
+        set(ydimHandle, 'Value', get(xdimHandle, 'Value') + 1);
+    else
+        set(ydimHandle, 'Value', ydim+1);
+    end
+    if redrawAxesFlag
+        RedrawAxes(figHandle, 'full', 1);
+    end
+    
+case 'ContourPlot'
+    contourWindow = findobj('Type', 'figure', 'Tag', 'ContourWindow');
+    drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');
+    if isempty(contourWindow)
+        contourWindow = figure('NumberTitle', 'off', 'Name', 'Contour Plot', 'Tag', 'ContourWindow');
+    end
+    mkContours(drawingFigHandle, 'figHandle', contourWindow);
+    
+case 'HideCluster'
+    global MClust_Hide
+    iClust = get(cboHandle, 'UserData');
+    MClust_Hide(iClust + 1) = get(cboHandle, 'Value');
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'HideAll'
+    global MClust_Hide
+    MClust_Hide = ones(size(MClust_Hide));
+    hideObjects = findobj(figHandle, 'Style', 'checkbox', 'Tag', 'HideCluster');
+    set(hideObjects, 'Value', 1);
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'ShowAll'
+    global MClust_Hide
+    MClust_Hide = zeros(size(MClust_Hide));
+    hideObjects = findobj(figHandle, 'Style', 'checkbox', 'Tag', 'HideCluster');
+    set(hideObjects, 'Value', 0);
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'ViewAllDimensions'
+    xdimHandle = findobj(figHandle, 'Tag', 'xdim');
+    ydimHandle = findobj(figHandle, 'Tag', 'ydim');
+    xnD = length(get(xdimHandle, 'String'));
+    ynD = length(get(ydimHandle, 'String'));
+    xsD = get(xdimHandle, 'Value');
+    ysD = get(ydimHandle, 'Value');
+    for iD = xsD:xnD
+        for jD = max((iD+1),ysD):ynD   
+            if get(cboHandle, 'Value')
+                set(xdimHandle, 'Value', iD);
+                set(ydimHandle, 'Value', jD);
+                RedrawAxes(figHandle, 'full', 1);
+                drawnow
+            else
+                set(cboHandle,'Value',0);
+                return
+            end
+            pause(0.1)
+        end
+    end
+    RedrawAxes(figHandle);
+    set(cboHandle, 'Value', 0);
+    
+case 'AxLimDlg'
+    drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+    if ~isempty(drawingFigHandle)
+        figure(drawingFigHandle);
+        axlimdlg;
+    end
+    
+case 'Add Cluster'
+    GeneralizedCutterStoreUndo('Add Cluster');
+    global MClust_Clusters MClust_Hide
+    dY = 0.05;
+    YLocs = 0.9:-dY:0.1;
+    clusterType = get(cboHandle, 'UserData');
+    
+    if isempty(MClust_Clusters)
+        MClust_Clusters{1} = DeleteMembers(feval(clusterType));
+        MClust_Hide(2) = 0;
+    else
+        MClust_Clusters{end+1} = DeleteMembers(feval(clusterType));
+        MClust_Hide(length(MClust_Clusters) + 1) = 0;
+    end
+%     global MClust_ClusterFileNames
+%     MClust_ClusterFileNames{end + 1} = 'New Cluster';
+    GeneralizedCutterClearClusterKeys(figHandle);
+    GeneralizedCutterRedrawClusterKeys(figHandle, max(0,length(MClust_Clusters)-16));
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'Pack Clusters'
+    GeneralizedCutterStoreUndo('Pack Clusters');
+    global MClust_Clusters MClust_FeatureData MClust_Colors MClust_Hide
+    global MClust_ClusterFileNames
+    newClusterList = {};
+    newClusterNames = [];
+    GeneralizedCutterClearClusterKeys(figHandle);
+    newHide = zeros(size(MClust_Hide));
+    newHide(1) = MClust_Hide(1);
+    NumNewClusters = 1;
+    for iC = 1:length(MClust_Clusters)
+		[f MClust_Clusters{iC}] = FindInCluster(MClust_Clusters{iC}, MClust_FeatureData);
+        if ~isempty(f)
+            NumNewClusters = NumNewClusters + 1;
+            newHide(NumNewClusters) = MClust_Hide(iC + 1);
+            newClusterList{end+1} = MClust_Clusters{iC};    
+            MClust_Colors(length(newClusterList)+1,:) = MClust_Colors(iC+1,:);
+            newClusterNames{end+1} = MClust_ClusterFileNames{iC};
+        end
+    end
+    MClust_Hide = newHide;
+    MClust_Clusters = newClusterList;
+    MClust_ClusterFileNames = newClusterNames;
+    GeneralizedCutterRedrawClusterKeys(figHandle);
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'Undo'
+    GeneralizedCutterClearClusterKeys(figHandle);
+    GeneralizedCutterRecallUndo;
+    GeneralizedCutterRedrawClusterKeys(figHandle);
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'AcceptFeatures'
+	global MClust_ClusterSeparationFeatures
+	
+	figure(findobj('Name','Cluster Separation'))
+	newFeatures = get(findobj('Tag','FeaturesUseListbox','TooltipString', 'These features will be used for cluster separation.'),...
+		'String');
+	if ~isempty(newFeatures)
+		MClust_ClusterSeparationFeatures = {};
+		MClust_ClusterSeparationFeatures = newFeatures;
+		close;
+	else
+		msgbox('Error: At least one feature must be selected');
+	end
+	
+case 'CutterFunctions'
+	% automatically call cutter functions
+	cboString = get(cboHandle, 'String');
+    cboValue = get(cboHandle, 'Value');
+    if cboValue == 1; return; end   
+    set(cboHandle, 'Value', 1);
+ 	if exist(fullfile(MClust_Directory,'GeneralizedCutterOptions', cboString{cboValue}))
+		feval(cboString{cboValue});
+	else		
+		warndlg({'Function not yet available.', get(cboHandle, 'Tag')}, 'Implementation Warning');
+	end
+
+case 'Autosave'
+    GeneralizedCutterStepAutosave(1);
+    
+case 'Exit'
+    drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+    if ~isempty(drawingFigHandle)
+        close(drawingFigHandle)
+    end
+    contourFigHandle = findobj('Type', 'figure', 'Tag', 'ContourWindow'); % contour plot window
+    if ~isempty(contourFigHandle)
+        close(contourFigHandle)
+    end
+    close(figHandle)
+    
+case 'ChooseColor'
+    global MClust_Colors    
+    iClust = get(cboHandle, 'UserData')+1;
+    MClust_Colors(iClust,:) = uisetcolor(MClust_Colors(iClust,:), 'Set Cluster Color');
+    set(cboHandle, 'BackgroundColor', MClust_Colors(iClust,:));
+    lineHandle = findobj('Tag', 'ClusterLine', 'UserData', iClust);
+    if ~isempty(lineHandle)
+        set(lineHandle, 'Color', MClust_Colors(iClust, :));
+    elseif redrawAxesFlag
+        RedrawAxes(figHandle);
+    end
+    
+case 'ScrollClusters'
+    GeneralizedCutterClearClusterKeys(figHandle);
+    GeneralizedCutterRedrawClusterKeys(figHandle);
+% 	if redrawAxesFlag
+% 		RedrawAxes(figHandle);
+% 	end
+    
+case 'UnaccountedForOnly'
+    global MClust_UnaccountedForOnly
+    MClust_UnaccountedForOnly = get(cboHandle, 'Value');
+    if redrawAxesFlag
+        RedrawAxes(figHandle);
+    end   
+    
+case 'ClusterFunctions'
+    cboString = get(cboHandle, 'String');
+    cboValue = get(cboHandle, 'Value');
+    if cboValue == 1; return; end   
+    set(cboHandle, 'Value', 1);
+    switch cboString{cboValue}
+        
+    case 'Add limit'
+        GeneralizedCutterStoreUndo('Add limit');
+        iClust = get(cboHandle, 'UserData');
+        
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        xdim = get(XdimHandle, 'Value');
+        
+        YdimHandle = findobj(figHandle, 'Tag', 'ydim'); % get y dimension
+        ydim = get(YdimHandle, 'Value');   
+        
+        drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+        if isempty(drawingFigHandle)
+            errordlg('No drawing axis available.', 'Error');
+        else
+            drawingAxisHandle = findobj(drawingFigHandle, 'Type', 'axes');
+            MClust_Clusters{iClust} = AddLimit(MClust_Clusters{iClust}, xdim, ydim, drawingAxisHandle);
+        end
+        if redrawAxesFlag  
+            RedrawAxes(figHandle);
+        end
+        
+    case 'Add limit'
+        GeneralizedCutterStoreUndo('Add limit');
+        iClust = get(cboHandle, 'UserData');
+        
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        xdim = get(XdimHandle, 'Value');
+        
+        YdimHandle = findobj(figHandle, 'Tag', 'ydim'); % get y dimension
+        ydim = get(YdimHandle, 'Value');   
+        
+        drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+        if isempty(drawingFigHandle)
+            errordlg('No drawing axis available.', 'Error');
+        else
+            drawingAxisHandle = findobj(drawingFigHandle, 'Type', 'axes');
+            MClust_Clusters{iClust} = AddLimit(MClust_Clusters{iClust}, xdim, ydim, drawingAxisHandle);
+        end
+        if redrawAxesFlag  
+            RedrawAxes(figHandle);
+        end
+        
+	case 'Add points'
+        GeneralizedCutterStoreUndo('Add points');
+        iClust = get(cboHandle, 'UserData');
+        
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        xdim = get(XdimHandle, 'Value');
+        
+        YdimHandle = findobj(figHandle, 'Tag', 'ydim'); % get y dimension
+        ydim = get(YdimHandle, 'Value');   
+        
+        drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+        if isempty(drawingFigHandle)
+            errordlg('No drawing axis available.', 'Error');
+        else
+            drawingAxisHandle = findobj(drawingFigHandle, 'Type', 'axes');
+            MClust_Clusters{iClust} = AddPoints(MClust_Clusters{iClust}, MClust_FeatureData, drawingAxisHandle);
+        end
+        if redrawAxesFlag  
+            RedrawAxes(figHandle);
+        end
+		
+		
+    case 'Add inclusive limit'
+        GeneralizedCutterStoreUndo('Add inclusive limit');
+        iClust = get(cboHandle, 'UserData');
+        
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        xdim = get(XdimHandle, 'Value');
+        
+        YdimHandle = findobj(figHandle, 'Tag', 'ydim'); % get y dimension
+        ydim = get(YdimHandle, 'Value');   
+        
+        drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+        if isempty(drawingFigHandle)
+            errordlg('No drawing axis available.', 'Error');
+        else
+            drawingAxisHandle = findobj(drawingFigHandle, 'Type', 'axes');
+            MClust_Clusters{iClust} = AddLimitINCL(MClust_Clusters{iClust}, xdim, ydim, drawingAxisHandle);
+        end
+        if redrawAxesFlag  
+            RedrawAxes(figHandle);
+        end
+        
+    case 'Add limit UNAC'
+        GeneralizedCutterStoreUndo('Add limit UNAC');
+        iClust = get(cboHandle, 'UserData');
+        
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        xdim = get(XdimHandle, 'Value');
+        
+        YdimHandle = findobj(figHandle, 'Tag', 'ydim'); % get y dimension
+        ydim = get(YdimHandle, 'Value');   
+        
+        drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+        if isempty(drawingFigHandle)
+            errordlg('No drawing axis available.', 'Error');
+        else
+            drawingAxisHandle = findobj(drawingFigHandle, 'Type', 'axes');
+            MClust_Clusters{iClust} = AddLimitUNAC(MClust_Clusters{iClust}, xdim, ydim, drawingAxisHandle);
+        end
+        if redrawAxesFlag  
+            RedrawAxes(figHandle);
+        end
+        
+    case 'Delete limit'
+        GeneralizedCutterStoreUndo('Delete limit');
+        
+        iClust = get(cboHandle, 'UserData');
+        
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        xdim = get(XdimHandle, 'Value');
+        
+        YdimHandle = findobj(figHandle, 'Tag', 'ydim'); % get y dimension
+        ydim = get(YdimHandle, 'Value');   
+        
+        MClust_Clusters{iClust} = DeleteLimit(MClust_Clusters{iClust}, xdim, ydim);
+        if redrawAxesFlag
+            RedrawAxes(figHandle);
+        end
+        
+    case 'Delete all limits'
+        GeneralizedCutterStoreUndo('Delete all limits');
+        iClust = get(cboHandle, 'UserData');
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        maxXdim = length(get(XdimHandle, 'String'));
+        YdimHandle = findobj(figHandle, 'tag', 'ydim'); % get y dimension
+        maxYdim = length(get(YdimHandle, 'String'));
+        [GetInfoMSG ClusterLimits] = GetInfo(MClust_Clusters{iClust});
+        if ~isempty(ClusterLimits)
+            for iX = 1:length(ClusterLimits(:,1))
+                MClust_Clusters{iClust} = DeleteLimit(MClust_Clusters{iClust}, ClusterLimits(iX,1), ClusterLimits(iX,2));
+            end
+        end
+        if redrawAxesFlag
+            RedrawAxes(figHandle);
+        end
+        
+    case 'Delete Cluster'
+        GeneralizedCutterStoreUndo('Delete Cluster');
+        iClust = get(cboHandle, 'UserData');
+        XdimHandle = findobj(figHandle, 'Tag', 'xdim'); % get x dimension
+        maxXdim = length(get(XdimHandle, 'String'));
+        YdimHandle = findobj(figHandle, 'tag', 'ydim'); % get y dimension
+        maxYdim = length(get(YdimHandle, 'String'));
+        [GetInfoMSG ClusterLimits] = GetInfo(MClust_Clusters{iClust});
+        if ~isempty(ClusterLimits)
+            for iX = 1:length(ClusterLimits(:,1))
+                MClust_Clusters{iClust} = DeleteLimit(MClust_Clusters{iClust}, ClusterLimits(iX,1), ClusterLimits(iX,2));
+            end
+        end
+        MClust_Clusters{iClust} = DeleteMembers(MClust_Clusters{iClust});
+        global MClust_ClusterFileNames
+%         if ~isempty(MClust_ClusterFileNames)
+%             if iClust < length(MClust_Clusters) & iClust > 1
+%                 MClust_ClusterFileNames = MClust_ClusterFileNames([1:iClust-1 iClust+1:end]);
+%             elseif iClust == 1
+%                 MClust_ClusterFileNames = MClust_ClusterFileNames(2:end);
+%             else
+%                 MClust_ClusterFileNames = MClust_ClusterFileNames(1:end-1);
+%             end
+%         end
+        if redrawAxesFlag
+            RedrawAxes(figHandle);
+        end
+        
+        
+    case 'Copy cluster'
+        GeneralizedCutterStoreUndo('Copy cluster');
+        global MClust_Clusters MClust_Hide
+        global MClust_ClusterFileNames
+        iClust = get(cboHandle, 'UserData');
+        MClust_ClusterFileNames{end+1} = ['Copy of cluster ' num2str(iClust)];
+        MClust_Clusters{end+1} = MClust_Clusters{iClust};
+        MClust_Hide(end+1) = 0;
+        GeneralizedCutterClearClusterKeys(figHandle);
+        GeneralizedCutterRedrawClusterKeys(figHandle, max(0,length(MClust_Clusters)-16));
+        warndlg(['Cluster ' num2str(iClust) ' copied to cluster ' num2str(length(MClust_Clusters)) '.'], 'Copy successful');
+        
+        
+	case 'Rename Cluster'
+		GeneralizedCutterStoreUndo('Rename Cluster');
+		global MClust_ClusterFileNames MClust_Clusters
+        iClust = get(cboHandle, 'UserData');
+		newClusterName = inputdlg(['Enter a new name for Cluster ' num2str(iClust) ]);
+		if ~isempty(newClusterName)
+			MClust_ClusterFileNames(iClust) = newClusterName;
+			GeneralizedCutterClearClusterKeys(figHandle);
+			GeneralizedCutterRedrawClusterKeys(figHandle, max(0,length(MClust_Clusters)-16));
+		end
+		
+    case 'Merge with'
+        GeneralizedCutterStoreUndo('Merge');
+        global MClust_Clusters MClust_Hide
+        iClust = get(cboHandle, 'UserData');
+        mergeClust = inputdlg(['Merge Cluster ' num2str(iClust) ' with ...? (Enter a single cluster or a blank separated list of clusters...)']);
+        if isempty(mergeClust), return, end
+        mergeClust = str2num(mergeClust{1});
+        tmpClust = MClust_Clusters{iClust};
+        mergeFail = 0;
+        MergedClusterName = ['Merge of (' num2str(iClust)];
+        for imC = 1:length(mergeClust)
+            if mergeClust(imC) > 0 & mergeClust(imC) <= length(MClust_Clusters) % & mergeClust(imC) ~= iClust
+                tmpClust = Merge(tmpClust, MClust_Clusters{mergeClust(imC)});
+                MergedClusterName = [MergedClusterName ',' num2str(mergeClust(imC))];
+            else
+                mergeFail = mergeClust(imC); 
+            end
+        end% for imC
+        
+        MergedClusterName = [MergedClusterName ')'];
+        if ~mergeFail
+            global MClust_ClusterFileNames
+            MClust_ClusterFileNames{end+1} = MergedClusterName;
+            MClust_Clusters{end+1} = tmpClust;
+            MClust_Hide(end+1) = 0;
+            clear tmpClust;
+            GeneralizedCutterClearClusterKeys(figHandle);
+            GeneralizedCutterRedrawClusterKeys(figHandle, max(0,length(MClust_Clusters)-16));
+            warndlg(['Cluster ' num2str(iClust) ' merged with cluster(s) ' ...
+                    num2str(mergeClust) ' into new cluster ' num2str(length(MClust_Clusters)) '.'], 'Merge successful');
+        else
+            errordlg(['Cannot merge clusters ' num2str(iClust) ' and ' num2str(mergeFail) '.']);
+            clear tmpClust;
+        end%if
+		
+    case 'Check Cluster'
+        global MClust_TTData MClust_Clusters MClust_FeatureData MClust_TTfn
+        run_checkclust = 1;
+        
+        iClust = get(cboHandle, 'UserData');
+        
+        [f MClust_Clusters{iClust}] = FindInCluster(MClust_Clusters{iClust}, MClust_FeatureData);
+        [L_Extra,L_Ratio,IsolationDist,Dists] = ClusterSeparation(f,[MClust_TTdn filesep MClust_TTfn],MClust_ChannelValidity,iClust);
+        % modified ncst 23 May 02
+        %         if length(f) > 150000
+        %             ButtonName=questdlg([ 'There are ' num2str(length(f)) ' points in this cluster. MClust may crash. Are you sure you want to check clusters?'], ...
+        %                 'MClust', 'Yes','No','No');
+        %             if strcmpi(ButtonName,'No')
+        %                 run_checkclust = 0;
+        %             end
+        %         else
+        
+        if length(f) == 0
+            run_checkclust = 0;
+            msgbox('No points in cluster.')
+        end
+        
+        if run_checkclust
+            save_jpegs = 0; 
+            if iClust == 0
+                clustTT = MClust_TTData;
+            else
+                [clustTT, was_scaled] = ExtractCluster(MClust_TTData, f);
+            end
+            [curdn,curfn] = fileparts(MClust_TTfn);
+            if was_scaled
+                title_string = [ 'Only ' num2str(length(Range(clustTT,'ts'))) ' of ' num2str(was_scaled) ' spikes shown.'];
+            else
+                title_string = [];
+            end
+			ClustInd = repmat(0,size(MClust_FeatureTimestamps));
+			ClustInd(f) = 1;
+			CheckCluster([curfn, '--Cluster', num2str(iClust)], clustTT, MClust_FeatureTimestamps(1), MClust_FeatureTimestamps(end), save_jpegs,...
+				title_string, was_scaled,'L_Extra',L_Extra,'L_Ratio',L_Ratio,'IsolationDist',IsolationDist,...
+				'Dists',Dists,'ClustInd',ClustInd);
+        end
+        
+    case 'Variances'
+        global MClust_FeatureData MClust_Clusters MClust_FeaturesToUse
+        global MClust_CurrentFeatures MClust_FeatureIndex MClust_FeatureNames
+        xdimHandle = findobj(figHandle, 'Tag', 'xdim');
+        xdimString = get(xdimHandle, 'String');
+        iClust = get(cboHandle, 'UserData');
+        variances = [];
+        VarFN = {};
+        [f MClust_Clusters{iClust}] = FindInCluster(MClust_Clusters{iClust}, MClust_FeatureData);
+        if length(f) > 2
+            for iLbls = 1:length(MClust_FeaturesToUse)
+			    [fpath fname fext] = fileparts(MClust_FDfn);
+			    FeatureToGet = MClust_FeatureNames{iLbls};
+                if strcmpi(MClust_FeaturesToUse{iLbls},'time') 
+                    %variances(iLbls) = std(MClust_FeatureTimestamps(f,1),1) ./ (max(MClust_FeatureTimestamps) - min(MClust_FeatureTimestamps));
+                else
+				    FindColon = find(FeatureToGet == ':');
+				    temp = load(fullfile(fpath, [fname '_' MClust_FeaturesToUse{iLbls} '.fd']),'-mat');
+                    for iCh = 1:length(temp.FeatureNames)
+                        VarFN{end + 1} = temp.FeatureNames{iCh};
+                        variances(end + 1) = std(temp.FeatureData(f,iCh), 1) ./ (max(temp.FeatureData(:,iCh)) - min(temp.FeatureData(:,iCh)));
+                    end
+                end
+            end
+            [dummy, order] = sort(variances);
+            order = order(end:-1:1);
+            msg = cell(length(variances),1);
+            for iC = 1:length(variances)
+                msg{iC} = sprintf('%10s --- %.5f', VarFN{order(iC)}, variances(order(iC))); %ncst 14 Jan 02 xdimString{order(iC)}, variances(order(iC)));
+            end
+            msgbox(msg, ['Var: Cluster ' num2str(iClust)]);
+        else
+            errordlg('Too few points to calculate variances.', 'MClust error', 'modal');
+        end         
+    case 'Remove From Record'
+        % Permanently remove the features in this cluster from the dataspace. 
+        ButtonName=questdlg('Are you sure you wish to remove these points from the feature and TT record?', ...
+            'MClust', ...
+            'Yes','No','No');
+        if strcmpi(ButtonName,'Yes')
+            GeneralizedCutterStoreUndo('Remove From Record');
+            iClust = get(cboHandle, 'UserData');
+            [f MClust_Clusters{iClust}] = FindInCluster(MClust_Clusters{iClust}, MClust_FeatureData);
+            % Find the features outside of the limit.
+            n_original_spikes = length(MClust_FeatureTimestamps);
+            good_f = setdiff(1:n_original_spikes,f);
+            MClust_FeatureData = MClust_FeatureData(good_f,:);
+            MClust_FeatureTimestamps = MClust_FeatureTimestamps(good_f);
+            if ~isempty(MClust_TTData)
+                MClust_TTData = Restrict(MClust_TTData,MClust_FeatureTimestamps);
+            end
+            
+            GeneralizedCutterClearClusterKeys(figHandle);
+            GeneralizedCutterRedrawClusterKeys(figHandle, max(0,length(MClust_Clusters)-16));
+            
+            % Delete all of the original points in the mc or bbconvex hull object.
+            MClust_Clusters{iClust} = DeleteMembers(MClust_Clusters{iClust});
+            
+            if redrawAxesFlag
+                RedrawAxes(figHandle);
+            end
+            
+            msgbox([' Removed ' num2str(n_original_spikes-length(good_f)) ' points. Currently ' num2str(length(good_f)) ' points'])
+
+        end
+    case 'Save Cluster as .fd file'
+        if isempty(MClust_FeatureData)
+            msgbox('No Feature data is in memory. Load or calculate feature data.')
+        else
+            iClust = get(cboHandle, 'UserData');
+            [f MClust_Clusters{iClust}] = FindInCluster(MClust_Clusters{iClust}, MClust_FeatureData);
+            [p,n,e] = fileparts(MClust_TTfn);
+            expExtension = [p filesep n '_clu_' num2str(iClust) '.fd'];
+            [saved_FdFile_name, saved_FdFile_dir] = uiputfile(expExtension, 'FD file');
+            if ~isempty(saved_FdFile_name)
+                FDfname = fullfile(saved_FdFile_dir , saved_FdFile_name);
+                m = msgbox([  ' Writing ' FDfname ' as a .mat formatted file']);
+                FeatureTimestamps = MClust_FeatureTimestamps(f);
+                FeatureData  = MClust_FeatureData(f,:);
+                FeaturesToUse = MClust_FeaturesToUse;
+                ChannelValidity = MClust_ChannelValidity;
+                FeatureNames = MClust_FeatureNames;
+                FeaturePar = {};
+                FD_av = [];
+                FD_sd = [];
+                save(FDfname, 'FeatureTimestamps','FeatureData', 'FeaturesToUse', 'ChannelValidity', 'FeatureNames', 'FeaturePar','FD_av','FD_sd', '-mat');
+                clear FeatureData FeatureTimestamps
+                pack
+                try 
+                    close(m)
+                catch
+                end
+            else
+                msgbox('No filename specified.')
+            end
+        end
+        
+        
+	case '---------------------'
+		return
+		
+    otherwise
+		if exist(fullfile(MClust_Directory,'ClusterOptions', cboString{cboValue}))
+			iClust = get(cboHandle, 'UserData');
+			feval(cboString{cboValue},iClust);
+		else		
+			warndlg({'Function not yet available.', get(cboHandle, 'Tag')}, 'Implementation Warning');
+		end
+        
+    end
+    
+otherwise
+    warndlg({'Feature not yet available.', get(cboHandle, 'Tag')}, 'Implementation Warning');
+    
+end % switch
+
+if DirChange
+	popdir;
+end
+
+%---------------------------
+% subfunctions
+
+function RedrawAxes(figHandle, varargin)
+
+% -- get variables
+full = 0;
+extract_varargin;
+
+global MClust_Clusters MClust_Colors MClust_Hide MClust_UnaccountedForOnly MClust_ClusterIndex MClust_FeatureData MClust_FDfn MClust_CurrentFeatures
+global MClust_FeatureTimestamps MClust_FeatureNames
+global MClust_ClusterCutWindow_Marker
+global MClust_ClusterCutWindow_MarkerSize
+
+nClust = length(MClust_Clusters);
+
+drawingFigHandle = findobj('Type', 'figure', 'Tag', 'CHDrawingAxisWindow');  % figure to draw in
+%data = get(figHandle, 'UserData');  % data to plot
+%data = MClust_FeatureData;
+xdimHandle = findobj(figHandle, 'Tag', 'xdim');
+xdim = get(xdimHandle, 'Value');           % x dimemsion to plot
+ydimHandle = findobj(figHandle, 'Tag', 'ydim');  
+ydim = get(ydimHandle, 'Value');           % y dimension to plot
+markerHandle = findobj(figHandle, 'Tag', 'PlotMarker');
+markerString = get(markerHandle, 'String');
+markerValue = get(markerHandle, 'Value');
+MClust_ClusterCutWindow_Marker = markerValue;
+marker = markerString{markerValue};
+markerSizeHandle = findobj(figHandle, 'Tag', 'PlotMarkerSize');
+markerSizeString = get(markerSizeHandle, 'String');
+markerSizeValue = get(markerSizeHandle, 'Value');
+MClust_ClusterCutWindow_MarkerSize = markerSizeValue;
+markerSize = str2num(markerSizeString{markerSizeValue});
+
+CurrentPointer = getptr(gcf); setptr(gcf, 'watch');
+if ~strcmp(MClust_FeatureNames(ydim), MClust_CurrentFeatures(2))
+   if strcmpi(MClust_FeatureNames{ydim}(1:4), 'time')
+       MClust_FeatureData(:,2) = MClust_FeatureTimestamps;
+       MClust_CurrentFeatures(2) = MClust_FeatureNames(ydim);
+   else
+       [fpath fname fext] = fileparts(MClust_FDfn);
+       FeatureToGet = MClust_FeatureNames{ydim};
+       FindColon = find(FeatureToGet == ':');
+       temp = load(fullfile(fpath, [fname '_' FeatureToGet(1:FindColon-1) '.fd']),'-mat');
+       FeatureIndex = strmatch(FeatureToGet,temp.FeatureNames);
+       MClust_FeatureData(:,2) = temp.FeatureData(:,FeatureIndex);
+       MClust_CurrentFeatures(2) = temp.FeatureNames(FeatureIndex); %MClust_ylbls(ydim);
+   end;
+end;
+if ~strcmp(MClust_FeatureNames(xdim), MClust_CurrentFeatures(1))
+   if strcmpi(MClust_FeatureNames{xdim}(1:4), 'time')
+       MClust_FeatureData(:,1) = MClust_FeatureTimestamps;
+       MClust_CurrentFeatures(1) = MClust_FeatureNames(xdim);
+   else
+       [fpath fname fext] = fileparts(MClust_FDfn);
+       FeatureToGet = MClust_FeatureNames{xdim};
+       FindColon = find(FeatureToGet == ':');
+       temp = load(fullfile(fpath, [fname '_' FeatureToGet(1:FindColon-1) '.fd']),'-mat');
+       FeatureIndex = strmatch(FeatureToGet,temp.FeatureNames);
+       MClust_FeatureData(:,1) = temp.FeatureData(:,FeatureIndex);
+       MClust_CurrentFeatures(1) = temp.FeatureNames(FeatureIndex); %MClust_ylbls(ydim);
+   end;
+end;
+setptr(gcf, CurrentPointer{2});
+
+if isempty(drawingFigHandle)
+    % create new drawing figure
+    global MClust_CHDrawingAxisWindow_Pos;
+    drawingFigHandle = ...
+        figure('Name', 'Cluster Cutting Window',...
+        'NumberTitle', 'off', ...
+        'Tag', 'CHDrawingAxisWindow', ...
+        'KeyPressFcn', 'GeneralizedCutterKeyPress','Position',MClust_CHDrawingAxisWindow_Pos);
+else
+    % figure already exists -- select it
+    figure(drawingFigHandle);
+end
+
+% have to a complete redraw
+if ~full
+    curAxis = axis;
+end
+clf;
+hold on;
+for iC = 0:nClust     
+    if ~MClust_Hide(iC+1)
+        HideClusterHandle = findobj(figHandle, 'UserData', iC, 'Tag', 'HideCluster');
+        if iC == 0
+            if MClust_UnaccountedForOnly
+                MClust_ClusterIndex = ProcessClusters(MClust_FeatureData, MClust_Clusters);
+                f = find(MClust_ClusterIndex == 0);
+                figure(drawingFigHandle);
+                h = plot(MClust_FeatureData(f,1), MClust_FeatureData(f,2), marker);
+            else
+                figure(drawingFigHandle);
+                h = plot(MClust_FeatureData(:,1), MClust_FeatureData(:,2), marker);
+            end
+        else         
+            [f,MClust_Clusters{iC}] = FindInCluster(MClust_Clusters{iC}, MClust_FeatureData);
+            if isempty(f) & ~isempty(HideClusterHandle)
+                set(HideClusterHandle, 'Enable', 'off');
+            else 
+                set(HideClusterHandle, 'Enable', 'on');
+            end
+            figure(drawingFigHandle);
+            h = plot(MClust_FeatureData(f,1), MClust_FeatureData(f,2), marker);
+        end
+        set(h, 'Color', MClust_Colors(iC+1,:));
+        set(h, 'Tag', 'ClusterLine', 'UserData', iC);
+        set(h, 'MarkerSize', markerSize);
+        if iC > 0 & (isa(MClust_Clusters{iC}, 'mcconvexhull') | isa(MClust_Clusters{iC}, 'bbconvexhull'))
+            figure(drawingFigHandle);
+            DrawOnAxis(MClust_Clusters{iC}, xdim, ydim, MClust_Colors(iC+1,:));        
+        end   
+    end
+end
+figure(drawingFigHandle);
+if full
+    set(gca, 'XLim', [min(MClust_FeatureData(:,1)) max(MClust_FeatureData(:, 1))+0.0001]);
+    set(gca, 'YLim', [min(MClust_FeatureData(:,2)) max(MClust_FeatureData(:, 2))+0.0001]);
+else
+    axis(curAxis);
+end
+xlabel(MClust_CurrentFeatures{1});
+ylabel(MClust_CurrentFeatures{2});
+zoom on
+
+contourWindow = findobj('Type', 'figure', 'Tag', 'ContourWindow');
+if ~isempty(contourWindow)
+    mkContours(drawingFigHandle, 'figHandle', contourWindow);
+end
+figure(drawingFigHandle);
