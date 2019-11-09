@@ -1,0 +1,70 @@
+%% Batch processing command file:
+%%
+%% Keywords start with a double dash and are not case sensitive: --Keyword
+%%
+%% Comments start with a % character and are ignored till end of line
+%% Each line starts exactly with one keyword and a list of values (if any)
+%%
+
+
+%% Filenames and Directories
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+--BeginGlobals
+  --ProcessingDirectory        .    
+  --FeatureDataDir 	       FD
+  --FindFilesSearchString      TT*.dat			% batch process all files matching this search string 
+
+  --ClusterAlgorithm		BBClust			% use BBClust or KlustaKwik
+  --LoadingEngine		LoadTT_NeuralynxNT	% replace with your LoadingEngine
+
+  --UseFeatures			Energy wavePC1 wavePC2 waveFFT 
+  --ExtraFeatures		Peak Valley
+
+  %--RemoveFromBatchList    	TT9.dat     		% blank separated list of filename.ext to be excluded
+  %--AddToBatchList   		TT6.dat                 % blank separated list of filename.ext to be included
+--EndGlobals
+
+
+--BeginDefaults                            % defaults for all N-trode files unless overridden 
+  --ChannelValidity           1 1 1 1      % 4 values: 1 for valid, 0 for invalid channels
+  --SubSampleToNSpikes        350000        % approx number of spikes to which files will be subsampled (500000 was old value)
+  --NumberOfNearestNeighbors  30           % values 20-40 are reasonable 
+--EndDefaults
+
+
+%--File  TT1.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT2.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT3.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT4.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT5.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT6.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT7.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT8.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT9.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT10.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT11.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
+%--File  TT12.dat                        %  override defaults for individual files
+%    --ChannelValidity        		0 1 1 1  
+%    --NumberofNearestNeighbors   	25
